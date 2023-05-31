@@ -44,7 +44,7 @@ while running:
             player_y += jump_speed  # Update player's position based on jump speed
             jump_speed += gravity  # Apply gravity during descending
 
-    if player_y >= 400:
+    if player_y >= 400 and not on_ground:
         player_y = 400
         on_ground = True
         jump_speed = 0  # Reset jump speed when the player reaches the ground
@@ -56,6 +56,12 @@ while running:
         on_ground = False
         ascending = True  # Start ascending
         jump_speed = -10  # Start the jump by setting an initial jump speed
+    if keys[pygame.K_s] and on_ground:
+        player_height = duck_height
+        player_y = 440
+    elif on_ground:
+        player_y = 400
+        player_height = full_height
 
     # RENDER YOUR GAME HERE
 
