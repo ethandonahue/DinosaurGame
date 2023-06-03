@@ -1,11 +1,15 @@
 import pygame
 import random
 import numpy as np
+import matplotlib.pyplot as plt
 
 pygame.init()
 screen = pygame.display.set_mode((1280, 720))
 clock = pygame.time.Clock()
 running = True
+
+num_episodes = 1
+total_reward = 0
 
 full_height = 80
 duck_height = 40
@@ -59,6 +63,9 @@ num_states = 2  # Number of states (actions: jump or duck)
 num_actions = 3  # Number of actions (0: do nothing, 1: jump, 2: duck)
 q_table = np.zeros((num_states, num_actions))
 
+
+episode_numbers = []
+total_rewards = []
 
 def choose_action(state):
     if random.uniform(0, 1) < epsilon:
@@ -123,15 +130,33 @@ def check_collision():
 
 
 def update_score():
-    global score, add_score
+    global score, add_score, total_reward
 
     if obstacle_x < player_x and add_score:
+        total_reward += 1
         score += 50
         add_score = False
 
+def display_episode_results(episode_number, total_reward):
+    # Append the episode number and total reward to the lists
+    episode_numbers.append(episode_number)
+    total_rewards.append(total_reward)
+
+    # Clear the previous plot and create a new one
+    plt.figure()
+
+    # Plot the data
+    plt.plot(episode_numbers, total_rewards)
+    plt.xlabel('Number of Episodes')
+    plt.ylabel('Total Reward')
+    plt.title('Episode Results')
+
+    # Display the plot
+    plt.show()
 
 def restart_game():
-    global on_ground, ascending, jump_speed, player_height, player_y, game_over, score, add_score
+    global on_ground, ascending, jump_speed, player_height, player_y, game_over, score, add_score, num_episodes, total_reward
+    display_episode_results(num_episodes, total_reward)
     on_ground = True
     ascending = False
     jump_speed = 0
@@ -140,11 +165,13 @@ def restart_game():
     game_over = False
     score = 0
     add_score = True
+    num_episodes += 1
+    total_reward = 0
     spawn_obstacle()
 
 
 def update_obstacle():
-    global obstacle_x
+    global obstacle_x, add_score
 
     obstacle_x -= obstacle_speed
 
@@ -155,13 +182,9 @@ def update_obstacle():
 
 learning_status_font = pygame.font.Font(None, 24)  # Font for displaying the learning status
 
-num_episodes = 0
-total_reward = 0
 
 def display_statistics():
-    statistics_text = []
-    statistics_text.append(f"Episodes: {num_episodes}")
-    statistics_text.append(f"Total Reward: {total_reward}")
+    statistics_text = [f"Episodes: {num_episodes}", f"Total Reward: {total_reward}"]
     # Add more statistics as needed
 
     x = 10
@@ -172,6 +195,7 @@ def display_statistics():
         stat_text = learning_status_font.render(stat, True, (0, 0, 0))
         screen.blit(stat_text, (x, y))
         y += line_height
+
 
 
 
@@ -213,9 +237,10 @@ while running:
 
         # Update Q-table based on the current state, action, reward, and next state
         next_state = int(on_ground)
-        reward = 0  # Placeholder for the reward
+        reward = 1  # Placeholder for the reward
         update_q_table(state, action, reward, next_state)
 
+    display_statistics()
 
     pygame.display.flip()
     clock.tick(60)
