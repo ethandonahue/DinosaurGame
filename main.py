@@ -48,38 +48,49 @@ replay_button = pygame.Rect(550, 300, 180, 60)
 def spawn_obstacle():
     global obstacle_x, obstacle_y
     obstacle_x = 1240
-    obstacle_y = random.choice([380, 440])
+    obstacle_y = 440
 
 
 spawn_obstacle()
 
 # Q-learning parameters
-alpha = 0.1  # Learning rate
+alpha = 0.7  # Learning rate
 gamma = 0.9  # Discount factor
 epsilon = 0.1  # Exploration rate
 
 # Q-table
 num_states = 2  # Number of states (actions: jump or duck)
-num_actions = 3  # Number of actions (0: do nothing, 1: jump, 2: duck)
-q_table = np.zeros((num_states, num_actions))
-
+num_distances = 1280  # Number of possible distances (based on the screen width)
+num_actions = 2  # Number of actions (0: do nothing, 1: jump, 2: duck)
+q_table = np.zeros((num_states, num_distances, num_actions))
 
 episode_numbers = []
 total_rewards = []
 
-def choose_action(state):
+
+def choose_action(state, distance):
     if random.uniform(0, 1) < epsilon:
         # Explore: choose a random action
         return random.randint(0, num_actions - 1)
     else:
         # Exploit: choose the action with the highest Q-value for the current state
-        return np.argmax(q_table[state])
+        return np.argmax(q_table[state, distance])
 
 
-def update_q_table(state, action, reward, next_state):
+def get_distance():
+    return obstacle_x - player_x
+
+
+def update_q_table(state, action, reward, distance):
+    global game_over
+
+    if game_over:
+        # Apply penalty for dying
+        reward = -100
+
     # Update Q-value for the previous state-action pair using the Q-learning formula
-    q_table[state, action] = (1 - alpha) * q_table[state, action] + alpha * (
-            reward + gamma * np.max(q_table[next_state]))
+    q_table[state, distance, action] = (1 - alpha) * q_table[state, distance, action] + alpha * (
+            reward + gamma * np.max(q_table[state, distance]))
 
 
 def perform_action(action):
@@ -133,9 +144,11 @@ def update_score():
     global score, add_score, total_reward
 
     if obstacle_x < player_x and add_score:
+        update_q_table(state, action, 50, next_state)
         total_reward += 1
         score += 50
         add_score = False
+
 
 def display_episode_results(episode_number, total_reward):
     # Append the episode number and total reward to the lists
@@ -146,13 +159,21 @@ def display_episode_results(episode_number, total_reward):
     plt.figure()
 
     # Plot the data
-    plt.plot(episode_numbers, total_rewards)
+    plt.plot(episode_numbers, total_rewards, label='Episode Results')
+
+    # Fit a polynomial regression line
+    trend = np.polyfit(episode_numbers, total_rewards, deg=1)
+    trend_line = np.poly1d(trend)
+    plt.plot(episode_numbers, trend_line(episode_numbers), color='red', label='Trend Line')
+
     plt.xlabel('Number of Episodes')
     plt.ylabel('Total Reward')
     plt.title('Episode Results')
+    plt.legend()
 
     # Display the plot
     plt.show()
+
 
 def restart_game():
     global on_ground, ascending, jump_speed, player_height, player_y, game_over, score, add_score, num_episodes, total_reward
@@ -184,7 +205,7 @@ learning_status_font = pygame.font.Font(None, 24)  # Font for displaying the lea
 
 
 def display_statistics():
-    statistics_text = [f"Episodes: {num_episodes}", f"Total Reward: {total_reward}"]
+    statistics_text = [f"Episodes: {num_episodes}", f"Total Reward: {total_reward}", f"Distance: {get_distance()}"]
     # Add more statistics as needed
 
     x = 10
@@ -195,8 +216,6 @@ def display_statistics():
         stat_text = learning_status_font.render(stat, True, (0, 0, 0))
         screen.blit(stat_text, (x, y))
         y += line_height
-
-
 
 
 while running:
@@ -211,7 +230,7 @@ while running:
         state = int(on_ground)
 
         # Choose an action based on the current state
-        action = choose_action(state)
+        action = choose_action(state, get_distance())
 
         update_obstacle()
 
@@ -238,7 +257,7 @@ while running:
         # Update Q-table based on the current state, action, reward, and next state
         next_state = int(on_ground)
         reward = 1  # Placeholder for the reward
-        update_q_table(state, action, reward, next_state)
+        update_q_table(state, action, reward, get_distance())
 
     display_statistics()
 
